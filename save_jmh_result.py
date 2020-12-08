@@ -23,18 +23,15 @@
 ####################################################
 import datetime
 import os
-import urllib
-import urllib2
 import argparse
 import csv
 import json
-import random
+import requests
 
 # You need to enter the real URL and have the server running
 DEFAULT_CODESPEED_URL = 'http://localhost:8000/'
 
 current_date = datetime.datetime.today()
-
 
 parser = argparse.ArgumentParser(description='Upload jmh benchmark csv results')
 parser.add_argument('--commit', dest='commit', required=True,
@@ -49,31 +46,31 @@ parser.add_argument('--codespeed', dest='codespeed', default=DEFAULT_CODESPEED_U
 parser.add_argument('--project', dest='project', default="Flink")
 parser.add_argument('--exec', dest='executable', default="Flink")
 
-def readData(args):
+
+def read_data(args):
     results = []
     if args.input:
         path = args.input
     else:
         path = "jmh-result.csv"
-    modificationDate = datetime.datetime.fromtimestamp(os.path.getmtime(path))
-    #modificationDate = datetime.date(2016, 8, int(args.commit))
+    modification_date = datetime.datetime.fromtimestamp(os.path.getmtime(path))
 
     with open(path) as csvFile:
         reader = csv.reader(csvFile, delimiter=",")
         lines = [line for line in reader]
         header = lines[0]
-        params = sorted(filter(lambda s : s.startswith("Param"), header))
-        paramIndexes = map(lambda param : header.index(param), params)
-        benchmarkIndex = header.index("Benchmark")
-        scoreIndex = header.index("Score")
-        errorIndex = scoreIndex + 1
+        params = sorted(filter(lambda s: s.startswith("Param"), header))
+        param_indexes = [header.index(param) for param in params]
+        benchmark_index = header.index("Benchmark")
+        score_index = header.index("Score")
+        error_index = score_index + 1
 
         for line in lines[1:]:
-            name = line[benchmarkIndex].split(".")[-1]
-            if len(paramIndexes) > 0:
-                for paramIndex in paramIndexes:
-                    if len(line[paramIndex]) > 0:
-                        name += "." + line[paramIndex]
+            name = line[benchmark_index].split(".")[-1]
+            if len(param_indexes) > 0:
+                for param_index in param_indexes:
+                    if len(line[param_index]) > 0:
+                        name += "." + line[param_index]
 
             results.append({
                 'commitid': args.commit,
@@ -84,33 +81,31 @@ def readData(args):
                 'environment': args.environment,
                 'lessisbetter': False,
                 'units': 'records/ms',
-                'result_value': float(line[scoreIndex]),
+                'result_value': float(line[score_index]),
 
-                'revision_date': str(modificationDate),
-                'result_date': str(modificationDate),
-                'std_dev': line[errorIndex],  # Optional. Default is blank
+                'revision_date': str(modification_date),
+                'result_date': str(modification_date),
+                'std_dev': line[error_index],  # Optional. Default is blank
             })
     return results
 
-def add(data, codespeedUrl):
-    #params = urllib.urlencode(data)
-    response = "None"
+
+def post_data(data, codespeed_url):
     try:
-        f = urllib2.urlopen(
-            codespeedUrl + 'result/add/json/', urllib.urlencode(data))
-    except urllib2.HTTPError as e:
-        print str(e)
-        print e.read()
+        r = requests.post(
+            codespeed_url + 'result/add/json/', data=data)
+    except Exception as e:
+        print(str(e))
         return
-    response = f.read()
-    f.close()
-    print "Server (%s) response: %s\n" % (codespeedUrl, response)
+    response = r.text
+    print("Server (%s) response: %s\n" % (codespeed_url, response))
+
 
 if __name__ == "__main__":
     args = parser.parse_args()
 
-    data = json.dumps(readData(args), indent=4, sort_keys=True)
+    data = json.dumps(read_data(args), indent=4, sort_keys=True)
     if args.dry:
-        print data
+        print(data)
     else:
-        add({'json': data}, args.codespeed)
+        post_data({'json': data}, args.codespeed)
