@@ -6,18 +6,11 @@ import org.apache.flink.runtime.executiongraph.AccessExecution;
 import org.apache.flink.runtime.executiongraph.AccessExecutionJobVertex;
 import org.apache.flink.runtime.executiongraph.ExecutionGraphTestUtils;
 import org.apache.flink.runtime.executiongraph.ExecutionVertex;
-import org.apache.flink.runtime.executiongraph.utils.SimpleAckingTaskManagerGateway;
-import org.apache.flink.runtime.executiongraph.utils.SimpleSlotProvider;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.jobgraph.DistributionPattern;
-import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.ScheduleMode;
-import org.apache.flink.runtime.jobmaster.slotpool.SlotProvider;
 import org.apache.flink.runtime.taskmanager.TaskExecutionState;
-import org.apache.flink.runtime.testingUtils.TestingUtils;
-import org.apache.flink.runtime.testutils.DirectScheduledExecutorService;
-import org.apache.flink.util.ExecutorUtils;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -37,15 +30,9 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
-import java.util.List;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
-import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.createDefaultJobVertices;
-import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.createJobGraph;
-import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.createScheduler;
 import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.startScheduling;
 import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.transitionAllTaskStatus;
 
@@ -62,12 +49,11 @@ import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.transitio
 })
 @Warmup(iterations = 10)
 @Measurement(iterations = 10)
-public class RegionToRestartInStreamingJobBenchmark extends RuntimeBenchmarkBase {
+public class RegionToRestartInStreamingJobBenchmark extends SchedulerBenchmarkBase {
 
-	JobGraph jobGraph;
-	ExecutionVertex ev11;
 	JobVertex source;
 	JobVertex sink;
+	ExecutionVertex ev11;
 
 	public static void main(String[] args) throws RunnerException {
 		Options options = new OptionsBuilder()
@@ -80,56 +66,19 @@ public class RegionToRestartInStreamingJobBenchmark extends RuntimeBenchmarkBase
 
 	@Setup(Level.Trial)
 	public void setup() throws Exception {
-		final List<JobVertex> jobVertices = createDefaultJobVertices(
-				PARALLELISM,
-				DistributionPattern.ALL_TO_ALL,
-				ResultPartitionType.PIPELINED);
+		createAndSetupScheduler(DistributionPattern.ALL_TO_ALL,
+								ResultPartitionType.PIPELINED,
+								ScheduleMode.EAGER,
+								ExecutionMode.PIPELINED);
 
 		source = jobVertices.get(0);
 		sink = jobVertices.get(1);
 
-		jobGraph = createJobGraph(jobVertices, ScheduleMode.EAGER, ExecutionMode.PIPELINED);
-
-		taskDeploymentDescriptors = new ArrayBlockingQueue<>(PARALLELISM * 2);
-
-		final SimpleAckingTaskManagerGateway taskManagerGateway = new SimpleAckingTaskManagerGateway();
-		taskManagerGateway.setSubmitConsumer(taskDeploymentDescriptors::offer);
-
-		final SlotProvider slotProvider = new SimpleSlotProvider(
-				PARALLELISM * 2,
-				taskManagerGateway);
-
-		executor = Executors.newSingleThreadExecutor();
-		scheduledExecutorService = new DirectScheduledExecutorService();
-
-		scheduler = createScheduler(
-				jobGraph,
-				slotProvider,
-				executor,
-				scheduledExecutorService);
-
 		startScheduling(scheduler);
-	}
-
-	@TearDown(Level.Trial)
-	public void teardown() {
-		scheduler.suspend(new Exception("End of test."));
-
-		// Shutdown the default executor launched by initialization of DefaultSchedulerBuilder
-		ExecutorUtils.gracefulShutdown(1000, TimeUnit.MILLISECONDS, TestingUtils.defaultExecutor());
-
-		if (scheduledExecutorService != null) {
-			ExecutorUtils.gracefulShutdown(1000, TimeUnit.MILLISECONDS, scheduledExecutorService);
-		}
-
-		if (executor != null) {
-			ExecutorUtils.gracefulShutdown(1000, TimeUnit.MILLISECONDS, executor);
-		}
 	}
 
 	@Setup(Level.Iteration)
 	public void setupIteration() throws Exception {
-
 		transitionToRunning();
 		ev11 = scheduler.getExecutionJobVertex(source.getID()).getTaskVertices()[0];
 	}
@@ -144,6 +93,11 @@ public class RegionToRestartInStreamingJobBenchmark extends RuntimeBenchmarkBase
 		for (ExecutionVertex ev : scheduler.getExecutionJobVertex(sink.getID()).getTaskVertices()) {
 			ev.suspend();
 		}
+	}
+
+	@TearDown(Level.Trial)
+	public void teardown() {
+		shutdownScheduler();
 	}
 
 	public void transitionToRunning() throws Exception {

@@ -1,18 +1,9 @@
 package org.apache.flink.runtime.benchmark;
 
 import org.apache.flink.api.common.ExecutionMode;
-import org.apache.flink.runtime.deployment.TaskDeploymentDescriptor;
-import org.apache.flink.runtime.executiongraph.utils.SimpleAckingTaskManagerGateway;
-import org.apache.flink.runtime.executiongraph.utils.SimpleSlotProvider;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.jobgraph.DistributionPattern;
-import org.apache.flink.runtime.jobgraph.JobGraph;
-import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.ScheduleMode;
-import org.apache.flink.runtime.jobmaster.slotpool.SlotProvider;
-import org.apache.flink.runtime.scheduler.DefaultScheduler;
-import org.apache.flink.runtime.testutils.DirectScheduledExecutorService;
-import org.apache.flink.util.ExecutorUtils;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -30,17 +21,8 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
-import java.util.List;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.createDefaultJobVertices;
-import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.createJobGraph;
-import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.createScheduler;
 import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.startScheduling;
 import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.waitForAllTaskSubmitted;
 
@@ -48,13 +30,7 @@ import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.waitForAl
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @BenchmarkMode(Mode.AverageTime)
-public class DeployTasksInStreamingJobBenchmark extends RuntimeBenchmarkBase {
-
-	DefaultScheduler scheduler;
-	BlockingQueue<TaskDeploymentDescriptor> taskDeploymentDescriptors;
-	ExecutorService executor;
-	ScheduledExecutorService scheduledExecutorService;
-
+public class DeployTasksInStreamingJobBenchmark extends SchedulerBenchmarkBase {
 
 	public static void main(String[] args) throws RunnerException {
 		Options options = new OptionsBuilder()
@@ -67,44 +43,15 @@ public class DeployTasksInStreamingJobBenchmark extends RuntimeBenchmarkBase {
 
 	@Setup(Level.Iteration)
 	public void setup() throws Exception {
-		final List<JobVertex> jobVertices = createDefaultJobVertices(
-				PARALLELISM,
-				DistributionPattern.ALL_TO_ALL,
-				ResultPartitionType.PIPELINED);
-
-		final JobGraph jobGraph = createJobGraph(
-				jobVertices,
-				ScheduleMode.EAGER,
-				ExecutionMode.PIPELINED);
-
-		taskDeploymentDescriptors = new ArrayBlockingQueue<>(PARALLELISM * 2);
-		final SimpleAckingTaskManagerGateway taskManagerGateway = new SimpleAckingTaskManagerGateway();
-		taskManagerGateway.setSubmitConsumer(taskDeploymentDescriptors::offer);
-		final SlotProvider slotProvider = new SimpleSlotProvider(
-				PARALLELISM * 2,
-				taskManagerGateway);
-
-		executor = Executors.newSingleThreadExecutor();
-		scheduledExecutorService = new DirectScheduledExecutorService();
-
-		scheduler = createScheduler(
-				jobGraph,
-				slotProvider,
-				executor,
-				scheduledExecutorService);
+		createAndSetupScheduler(DistributionPattern.ALL_TO_ALL,
+								ResultPartitionType.PIPELINED,
+								ScheduleMode.EAGER,
+								ExecutionMode.PIPELINED);
 	}
 
 	@TearDown(Level.Iteration)
 	public void teardown() {
-		scheduler.suspend(new Exception("End of test."));
-
-		if (scheduledExecutorService != null) {
-			ExecutorUtils.gracefulShutdown(1000, TimeUnit.MILLISECONDS, scheduledExecutorService);
-		}
-
-		if (executor != null) {
-			ExecutorUtils.gracefulShutdown(1000, TimeUnit.MILLISECONDS, executor);
-		}
+		shutdownScheduler();
 	}
 
 	@Benchmark

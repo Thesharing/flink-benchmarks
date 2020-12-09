@@ -48,9 +48,7 @@ import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.createJob
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @BenchmarkMode(Mode.AverageTime)
-public class BuildExecutionGraphBenchmark {
-
-	private final static int PARALLELISM = 8000;
+public class BuildExecutionGraphBenchmark extends RuntimeBenchmarkBase {
 
 	JobGraph jobGraph;
 	ExecutionGraph executionGraph;

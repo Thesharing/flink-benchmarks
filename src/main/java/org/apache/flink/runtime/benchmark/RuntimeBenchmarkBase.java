@@ -1,18 +1,14 @@
 package org.apache.flink.runtime.benchmark;
 
-import org.apache.flink.runtime.deployment.TaskDeploymentDescriptor;
-import org.apache.flink.runtime.scheduler.DefaultScheduler;
+import org.openjdk.jmh.annotations.Param;
+import org.openjdk.jmh.annotations.Scope;
+import org.openjdk.jmh.annotations.State;
 
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ScheduledExecutorService;
-
+@State(Scope.Thread)
 public class RuntimeBenchmarkBase {
-	final static int PARALLELISM = 8000;
-	final static long TIMEOUT = 300_000L;
 
-	DefaultScheduler scheduler;
-	BlockingQueue<TaskDeploymentDescriptor> taskDeploymentDescriptors;
-	ExecutorService executor;
-	ScheduledExecutorService scheduledExecutorService;
+	@Param({"1000", "2000", "4000", "8000"})
+	public int PARALLELISM;
+
+	public final static long TIMEOUT = 300_000L;
 }

@@ -3,16 +3,10 @@ package org.apache.flink.runtime.benchmark;
 import org.apache.flink.api.common.ExecutionMode;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.executiongraph.AccessExecutionJobVertex;
-import org.apache.flink.runtime.executiongraph.utils.SimpleAckingTaskManagerGateway;
-import org.apache.flink.runtime.executiongraph.utils.SimpleSlotProvider;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.jobgraph.DistributionPattern;
-import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.ScheduleMode;
-import org.apache.flink.runtime.jobmaster.slotpool.SlotProvider;
-import org.apache.flink.runtime.testutils.DirectScheduledExecutorService;
-import org.apache.flink.util.ExecutorUtils;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -30,14 +24,8 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
-import java.util.List;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.createDefaultJobVertices;
-import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.createJobGraph;
-import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.createScheduler;
 import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.startScheduling;
 import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.transitionTaskStatus;
 import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.waitForAllTaskSubmitted;
@@ -46,7 +34,7 @@ import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.waitForAl
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @BenchmarkMode(Mode.AverageTime)
-public class DeploySinkTasksInBatchJobBenchmark extends RuntimeBenchmarkBase {
+public class DeploySinkTasksInBatchJobBenchmark extends SchedulerBenchmarkBase {
 
 	AccessExecutionJobVertex ejv;
 
@@ -61,31 +49,10 @@ public class DeploySinkTasksInBatchJobBenchmark extends RuntimeBenchmarkBase {
 
 	@Setup(Level.Iteration)
 	public void setup() throws Exception {
-		final List<JobVertex> jobVertices = createDefaultJobVertices(
-				PARALLELISM,
-				DistributionPattern.ALL_TO_ALL,
-				ResultPartitionType.BLOCKING);
-
-		final JobGraph jobGraph = createJobGraph(
-				jobVertices,
-				ScheduleMode.LAZY_FROM_SOURCES,
-				ExecutionMode.BATCH);
-
-		taskDeploymentDescriptors = new ArrayBlockingQueue<>(PARALLELISM * 2);
-		final SimpleAckingTaskManagerGateway taskManagerGateway = new SimpleAckingTaskManagerGateway();
-		taskManagerGateway.setSubmitConsumer(taskDeploymentDescriptors::offer);
-		final SlotProvider slotProvider = new SimpleSlotProvider(
-				PARALLELISM * 2,
-				taskManagerGateway);
-
-		executor = Executors.newSingleThreadExecutor();
-		scheduledExecutorService = new DirectScheduledExecutorService();
-
-		scheduler = createScheduler(
-				jobGraph,
-				slotProvider,
-				executor,
-				scheduledExecutorService);
+		createAndSetupScheduler(DistributionPattern.ALL_TO_ALL,
+								ResultPartitionType.BLOCKING,
+								ScheduleMode.LAZY_FROM_SOURCES,
+								ExecutionMode.BATCH);
 
 		startScheduling(scheduler);
 		waitForAllTaskSubmitted(taskDeploymentDescriptors, PARALLELISM, TIMEOUT);
@@ -94,7 +61,6 @@ public class DeploySinkTasksInBatchJobBenchmark extends RuntimeBenchmarkBase {
 
 		ejv = scheduler.requestJob().getAllVertices().get(source.getID());
 
-
 		for (int i = 0; i < PARALLELISM - 1; i++) {
 			transitionTaskStatus(scheduler, ejv, i, ExecutionState.FINISHED);
 		}
@@ -102,15 +68,7 @@ public class DeploySinkTasksInBatchJobBenchmark extends RuntimeBenchmarkBase {
 
 	@TearDown(Level.Iteration)
 	public void teardown() {
-		scheduler.suspend(new Exception("End of test."));
-
-		if (scheduledExecutorService != null) {
-			ExecutorUtils.gracefulShutdown(1000, TimeUnit.MILLISECONDS, scheduledExecutorService);
-		}
-
-		if (executor != null) {
-			ExecutorUtils.gracefulShutdown(1000, TimeUnit.MILLISECONDS, executor);
-		}
+		shutdownScheduler();
 	}
 
 	@Benchmark
