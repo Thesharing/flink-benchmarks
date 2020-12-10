@@ -117,6 +117,7 @@ public class RegionToRestartInStreamingJobBenchmark extends SchedulerBenchmarkBa
 	}
 
 	@Benchmark
+	@BenchmarkMode(Mode.SingleShotTime)
 	public void calculateRegionToRestart() {
 		scheduler.updateTaskExecutionState(
 				new TaskExecutionState(

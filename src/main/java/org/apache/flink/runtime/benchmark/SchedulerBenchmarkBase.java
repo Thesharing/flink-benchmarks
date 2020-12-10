@@ -86,6 +86,15 @@ public class SchedulerBenchmarkBase extends RuntimeBenchmarkBase {
 		if (executor != null) {
 			ExecutorUtils.gracefulShutdown(1000, TimeUnit.MILLISECONDS, executor);
 		}
+
+		jobVertices = null;
+		jobGraph = null;
+		scheduler = null;
+		taskDeploymentDescriptors = null;
+		executor = null;
+		scheduledExecutorService = null;
+
+		System.gc();
 	}
 }
 

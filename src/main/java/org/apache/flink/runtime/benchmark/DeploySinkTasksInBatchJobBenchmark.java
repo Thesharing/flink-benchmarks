@@ -12,12 +12,14 @@ import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Level;
+import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
+import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
@@ -34,6 +36,14 @@ import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.waitForAl
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @BenchmarkMode(Mode.AverageTime)
+@Fork(value = 3, jvmArgsAppend = {
+		"-Djava.rmi.server.hostname=127.0.0.1",
+		"-Dcom.sun.management.jmxremote.authenticate=false",
+		"-Dcom.sun.management.jmxremote.ssl=false",
+		"-Dcom.sun.management.jmxremote.ssl"
+})
+@Warmup(iterations = 10)
+@Measurement(iterations = 10)
 public class DeploySinkTasksInBatchJobBenchmark extends SchedulerBenchmarkBase {
 
 	AccessExecutionJobVertex ejv;
@@ -69,16 +79,12 @@ public class DeploySinkTasksInBatchJobBenchmark extends SchedulerBenchmarkBase {
 	@TearDown(Level.Iteration)
 	public void teardown() {
 		shutdownScheduler();
+		ejv = null;
+		System.gc();
 	}
 
 	@Benchmark
 	@BenchmarkMode(Mode.SingleShotTime)
-	@Fork(value = 10, jvmArgsAppend = {
-			"-Djava.rmi.server.hostname=127.0.0.1",
-			"-Dcom.sun.management.jmxremote.authenticate=false",
-			"-Dcom.sun.management.jmxremote.ssl=false",
-			"-Dcom.sun.management.jmxremote.ssl"
-	})
 	public void deploySinkTasksInBatchJob() throws Exception {
 		transitionTaskStatus(scheduler, ejv, PARALLELISM - 1, ExecutionState.FINISHED);
 		waitForAllTaskSubmitted(taskDeploymentDescriptors, PARALLELISM * 2, TIMEOUT);
