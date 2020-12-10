@@ -7,39 +7,19 @@ import org.apache.flink.runtime.jobgraph.ScheduleMode;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
-import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Level;
-import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
-import org.openjdk.jmh.annotations.OutputTimeUnit;
-import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
-import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
-import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
-import java.util.concurrent.TimeUnit;
-
 import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.startScheduling;
 import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.waitForAllTaskSubmitted;
 
-@SuppressWarnings("MethodMayBeStatic")
-@State(Scope.Thread)
-@OutputTimeUnit(TimeUnit.MILLISECONDS)
-@BenchmarkMode(Mode.AverageTime)
-@Fork(value = 3, jvmArgsAppend = {
-		"-Djava.rmi.server.hostname=127.0.0.1",
-		"-Dcom.sun.management.jmxremote.authenticate=false",
-		"-Dcom.sun.management.jmxremote.ssl=false",
-		"-Dcom.sun.management.jmxremote.ssl"
-})
-@Warmup(iterations = 10)
-@Measurement(iterations = 10)
 public class DeploySourceTasksInBatchJobBenchmark extends SchedulerBenchmarkBase {
 
 	public static void main(String[] args) throws RunnerException {
