@@ -1,27 +1,15 @@
-package org.apache.flink.runtime.benchmark;
+package org.apache.flink.runtime.benchmark.topology;
 
 import org.apache.flink.api.common.ExecutionMode;
-import org.apache.flink.api.common.time.Time;
-import org.apache.flink.configuration.JobManagerOptions;
-import org.apache.flink.runtime.akka.AkkaUtils;
-import org.apache.flink.runtime.blob.VoidBlobWriter;
-import org.apache.flink.runtime.executiongraph.DummyJobInformation;
+import org.apache.flink.runtime.benchmark.RuntimeBenchmarkBase;
 import org.apache.flink.runtime.executiongraph.ExecutionGraph;
-import org.apache.flink.runtime.executiongraph.JobInformation;
-import org.apache.flink.runtime.executiongraph.NoOpExecutionDeploymentListener;
-import org.apache.flink.runtime.executiongraph.failover.RestartAllStrategy;
-import org.apache.flink.runtime.executiongraph.failover.flip1.partitionrelease.RegionPartitionReleaseStrategy;
-import org.apache.flink.runtime.executiongraph.restart.NoRestartStrategy;
 import org.apache.flink.runtime.executiongraph.utils.SimpleSlotProvider;
-import org.apache.flink.runtime.io.network.partition.NoOpJobMasterPartitionTracker;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.jobgraph.DistributionPattern;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.ScheduleMode;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotProvider;
-import org.apache.flink.runtime.shuffle.NettyShuffleMaster;
-import org.apache.flink.runtime.testingUtils.TestingUtils;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -38,9 +26,10 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 import java.util.List;
 
 import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.createDefaultJobVertices;
+import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.createExecutionGraph;
 import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.createJobGraph;
 
-public class BuildExecutionGraphBenchmark extends RuntimeBenchmarkBase {
+public class BuildExecutionGraphInStreamingJobBenchmark extends RuntimeBenchmarkBase {
 
 	JobGraph jobGraph;
 	ExecutionGraph executionGraph;
@@ -48,14 +37,14 @@ public class BuildExecutionGraphBenchmark extends RuntimeBenchmarkBase {
 	public static void main(String[] args) throws RunnerException {
 		Options options = new OptionsBuilder()
 				.verbosity(VerboseMode.NORMAL)
-				.include(".*" + BuildExecutionGraphBenchmark.class.getCanonicalName() + ".*")
+				.include(".*" + BuildExecutionGraphInStreamingJobBenchmark.class.getCanonicalName() + ".*")
 				.build();
 
 		new Runner(options).run();
 	}
 
 	@Setup(Level.Iteration)
-	public void setup() throws Exception {
+	public void setupIteration() throws Exception {
 		final List<JobVertex> jobVertices = createDefaultJobVertices(
 				PARALLELISM,
 				DistributionPattern.ALL_TO_ALL,
@@ -65,31 +54,8 @@ public class BuildExecutionGraphBenchmark extends RuntimeBenchmarkBase {
 				ScheduleMode.EAGER,
 				ExecutionMode.PIPELINED);
 		final SlotProvider slotProvider = new SimpleSlotProvider(2 * PARALLELISM);
-		final JobInformation jobInformation = new DummyJobInformation(
-				jobGraph.getJobID(),
-				jobGraph.getName());
 
-		final ClassLoader classLoader = ExecutionGraph.class.getClassLoader();
-		executionGraph = new ExecutionGraph(
-				jobInformation,
-				TestingUtils.defaultExecutor(),
-				TestingUtils.defaultExecutor(),
-				AkkaUtils.getDefaultTimeout(),
-				new NoRestartStrategy(),
-				JobManagerOptions.MAX_ATTEMPTS_HISTORY_SIZE.defaultValue(),
-				new RestartAllStrategy.Factory(),
-				slotProvider,
-				classLoader,
-				VoidBlobWriter.getInstance(),
-				Time.seconds(10L),
-				new RegionPartitionReleaseStrategy.Factory(),
-				NettyShuffleMaster.INSTANCE,
-				NoOpJobMasterPartitionTracker.INSTANCE,
-				jobGraph.getScheduleMode(),
-				NoOpExecutionDeploymentListener.INSTANCE,
-				(execution, newState) -> {
-				},
-				System.currentTimeMillis());
+		executionGraph = createExecutionGraph(jobGraph, slotProvider);
 	}
 
 	@TearDown(Level.Iteration)
@@ -101,7 +67,7 @@ public class BuildExecutionGraphBenchmark extends RuntimeBenchmarkBase {
 
 	@Benchmark
 	@BenchmarkMode(Mode.SingleShotTime)
-	public void buildPipelinedRegion() throws Exception {
+	public void buildTopology() throws Exception {
 		executionGraph.attachJobGraph(jobGraph.getVerticesSortedTopologicallyFromSources());
 	}
 }
