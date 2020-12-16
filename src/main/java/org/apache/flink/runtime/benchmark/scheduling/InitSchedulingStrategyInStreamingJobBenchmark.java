@@ -30,8 +30,8 @@ public class InitSchedulingStrategyInStreamingJobBenchmark extends SchedulingBen
 	}
 
 	@Setup(Level.Iteration)
-	public void setupIteration() {
-		initSchedulingTopology(ResultPartitionState.CREATED, ResultPartitionType.PIPELINED_BOUNDED);
+	public void setupIteration(Blackhole blackhole) {
+		initSchedulingTopology(blackhole, ResultPartitionState.CREATED, ResultPartitionType.PIPELINED_BOUNDED);
 	}
 
 	@TearDown(Level.Iteration)

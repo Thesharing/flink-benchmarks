@@ -19,14 +19,14 @@ import java.util.concurrent.TimeUnit;
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @BenchmarkMode(Mode.AverageTime)
-@Fork(value = 3, jvmArgsAppend = {
+@Fork(value = 1, jvmArgsAppend = {
 		"-Djava.rmi.server.hostname=127.0.0.1",
 		"-Dcom.sun.management.jmxremote.authenticate=false",
 		"-Dcom.sun.management.jmxremote.ssl=false",
 		"-Dcom.sun.management.jmxremote.ssl"
 })
 @Warmup(iterations = 10)
-@Measurement(iterations = 10)
+@Measurement(iterations = 5)
 public class RuntimeBenchmarkBase {
 
 	@Param({"1000", "2000", "4000", "8000"})

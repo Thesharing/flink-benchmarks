@@ -28,8 +28,8 @@ public class InitSchedulingStrategyInBatchJobBenchmark extends SchedulingBenchma
 	}
 
 	@Setup(Level.Iteration)
-	public void setupIteration() {
-		initSchedulingTopology(ResultPartitionState.CREATED, ResultPartitionType.BLOCKING);
+	public void setupIteration(Blackhole blackhole) {
+		initSchedulingTopology(blackhole, ResultPartitionState.CREATED, ResultPartitionType.BLOCKING);
 	}
 
 	@TearDown(Level.Iteration)

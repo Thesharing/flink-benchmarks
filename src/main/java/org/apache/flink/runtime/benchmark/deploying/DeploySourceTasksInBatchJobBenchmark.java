@@ -57,7 +57,7 @@ public class DeploySourceTasksInBatchJobBenchmark extends DeployTaskBenchmarkBas
 
 	@Benchmark
 	@BenchmarkMode(Mode.SingleShotTime)
-	public void deployTasks() throws Exception {
+	public void deploySourceTasks() throws Exception {
 		for (ExecutionVertex ev : vertices) {
 			Execution execution = ev.getCurrentExecutionAttempt();
 			execution.deploy();

@@ -7,6 +7,8 @@ import org.apache.flink.runtime.scheduler.strategy.TestingSchedulerOperations;
 import org.apache.flink.runtime.scheduler.strategy.TestingSchedulingExecutionVertex;
 import org.apache.flink.runtime.scheduler.strategy.TestingSchedulingTopology;
 
+import org.openjdk.jmh.infra.Blackhole;
+
 import java.util.List;
 
 public class SchedulingBenchmarkBase extends RuntimeBenchmarkBase {
@@ -18,6 +20,7 @@ public class SchedulingBenchmarkBase extends RuntimeBenchmarkBase {
 	List<TestingSchedulingExecutionVertex> sink;
 
 	public void initSchedulingTopology(
+			Blackhole blackhole,
 			ResultPartitionState resultPartitionState,
 			ResultPartitionType resultPartitionType) {
 
@@ -33,6 +36,7 @@ public class SchedulingBenchmarkBase extends RuntimeBenchmarkBase {
 				.withResultPartitionType(resultPartitionType)
 				.finish();
 
+		blackhole.consume(schedulingTopology.getPipelinedRegionOfVertex(source.get(0).getId()));
 	}
 
 	public void clearVariables() {
