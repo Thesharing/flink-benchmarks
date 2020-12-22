@@ -1,24 +1,38 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.flink.runtime.benchmark;
 
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.ExecutionMode;
 import org.apache.flink.api.common.time.Deadline;
 import org.apache.flink.api.common.time.Time;
-import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.runtime.akka.AkkaUtils;
 import org.apache.flink.runtime.blob.VoidBlobWriter;
-import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutorServiceAdapter;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.executiongraph.AccessExecutionJobVertex;
-import org.apache.flink.runtime.executiongraph.AccessExecutionVertex;
 import org.apache.flink.runtime.executiongraph.DummyJobInformation;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.ExecutionGraph;
 import org.apache.flink.runtime.executiongraph.JobInformation;
 import org.apache.flink.runtime.executiongraph.NoOpExecutionDeploymentListener;
 import org.apache.flink.runtime.executiongraph.failover.RestartAllStrategy;
-import org.apache.flink.runtime.executiongraph.failover.flip1.TestRestartBackoffTimeStrategy;
 import org.apache.flink.runtime.executiongraph.failover.flip1.partitionrelease.RegionPartitionReleaseStrategy;
 import org.apache.flink.runtime.executiongraph.restart.NoRestartStrategy;
 import org.apache.flink.runtime.io.network.partition.NoOpJobMasterPartitionTracker;
@@ -29,34 +43,23 @@ import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.ScheduleMode;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotProvider;
 import org.apache.flink.runtime.scheduler.DefaultScheduler;
-import org.apache.flink.runtime.scheduler.ExecutionVertexVersioner;
-import org.apache.flink.runtime.scheduler.SchedulerNG;
-import org.apache.flink.runtime.scheduler.SchedulerTestingUtils;
-import org.apache.flink.runtime.scheduler.strategy.EagerSchedulingStrategy;
-import org.apache.flink.runtime.scheduler.strategy.LazyFromSourcesSchedulingStrategy;
-import org.apache.flink.runtime.scheduler.strategy.SchedulingStrategyFactory;
 import org.apache.flink.runtime.shuffle.NettyShuffleMaster;
 import org.apache.flink.runtime.taskmanager.TaskExecutionState;
 import org.apache.flink.runtime.testingUtils.TestingUtils;
 import org.apache.flink.runtime.testtasks.NoOpInvokable;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Predicate;
 
+/**
+ * Utilities for runtime benchmarks.
+ */
 public class RuntimeBenchmarkUtils {
-
-	private static final Logger LOG = LoggerFactory.getLogger(RuntimeBenchmarkUtils.class);
-	private static final Time TIMEOUT = Time.seconds(10L);
 
 	public static List<JobVertex> createDefaultJobVertices(
 			int parallelism,
@@ -126,42 +129,6 @@ public class RuntimeBenchmarkUtils {
 				System.currentTimeMillis());
 	}
 
-	public static DefaultScheduler createScheduler(
-			final JobGraph jobGraph,
-			final SlotProvider slotProvider,
-			final ExecutorService executor,
-			final ScheduledExecutorService scheduledExecutorService) throws Exception {
-
-		final SchedulingStrategyFactory schedulingStrategyFactory =
-				jobGraph.getScheduleMode() == ScheduleMode.LAZY_FROM_SOURCES ?
-						new LazyFromSourcesSchedulingStrategy.Factory() :
-						new EagerSchedulingStrategy.Factory();
-
-		final Configuration configuration = new Configuration();
-		final TestRestartBackoffTimeStrategy testRestartBackoffTimeStrategy =
-				new TestRestartBackoffTimeStrategy(true, 0);
-
-		final ExecutionVertexVersioner executionVertexVersioner = new ExecutionVertexVersioner();
-
-		return SchedulerTestingUtils.newSchedulerBuilderWithDefaultSlotAllocator(
-				jobGraph,
-				slotProvider,
-				TIMEOUT)
-				.setLogger(LOG)
-				.setIoExecutor(executor)
-				.setJobMasterConfiguration(configuration)
-				.setFutureExecutor(scheduledExecutorService)
-				.setSchedulingStrategyFactory(schedulingStrategyFactory)
-				.setRestartBackoffTimeStrategy(testRestartBackoffTimeStrategy)
-				.setExecutionVertexVersioner(executionVertexVersioner)
-				.build();
-	}
-
-	public static void startScheduling(final SchedulerNG scheduler) {
-		scheduler.setMainThreadExecutor(ComponentMainThreadExecutorServiceAdapter.forMainThread());
-		scheduler.startScheduling();
-	}
-
 	public static void waitForListFulfilled(
 			Collection<?> list,
 			int length,
@@ -216,20 +183,5 @@ public class RuntimeBenchmarkUtils {
 						scheduler.getExecutionGraph().getJobID(),
 						attemptId,
 						executionState));
-	}
-
-	public static void transitionAllTaskStatus(
-			DefaultScheduler scheduler,
-			AccessExecutionJobVertex vertex,
-			ExecutionState executionState) {
-
-		for (AccessExecutionVertex ev : vertex.getTaskVertices()) {
-			ExecutionAttemptID attemptId = ev.getCurrentExecutionAttempt().getAttemptId();
-			scheduler.updateTaskExecutionState(
-					new TaskExecutionState(
-							scheduler.getExecutionGraph().getJobID(),
-							attemptId,
-							executionState));
-		}
 	}
 }
