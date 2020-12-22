@@ -1,7 +1,7 @@
 package org.apache.flink.runtime.benchmark.topology;
 
 import org.apache.flink.api.common.ExecutionMode;
-import org.apache.flink.runtime.benchmark.RuntimeBenchmarkBase;
+import org.apache.flink.runtime.benchmark.ColdStartRuntimeBenchmarkBase;
 import org.apache.flink.runtime.executiongraph.ExecutionGraph;
 import org.apache.flink.runtime.executiongraph.utils.SimpleSlotProvider;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
@@ -29,7 +29,7 @@ import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.createDef
 import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.createExecutionGraph;
 import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.createJobGraph;
 
-public class BuildExecutionGraphInStreamingJobBenchmark extends RuntimeBenchmarkBase {
+public class BuildExecutionGraphInStreamingJobBenchmark extends ColdStartRuntimeBenchmarkBase {
 
 	JobGraph jobGraph;
 	ExecutionGraph executionGraph;

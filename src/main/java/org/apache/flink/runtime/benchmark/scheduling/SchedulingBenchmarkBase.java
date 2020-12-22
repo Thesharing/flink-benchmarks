@@ -1,6 +1,6 @@
 package org.apache.flink.runtime.benchmark.scheduling;
 
-import org.apache.flink.runtime.benchmark.RuntimeBenchmarkBase;
+import org.apache.flink.runtime.benchmark.ColdStartRuntimeBenchmarkBase;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.scheduler.strategy.ResultPartitionState;
 import org.apache.flink.runtime.scheduler.strategy.TestingSchedulerOperations;
@@ -11,7 +11,7 @@ import org.openjdk.jmh.infra.Blackhole;
 
 import java.util.List;
 
-public class SchedulingBenchmarkBase extends RuntimeBenchmarkBase {
+public class SchedulingBenchmarkBase extends ColdStartRuntimeBenchmarkBase {
 
 	TestingSchedulerOperations schedulerOperations;
 	TestingSchedulingTopology schedulingTopology;

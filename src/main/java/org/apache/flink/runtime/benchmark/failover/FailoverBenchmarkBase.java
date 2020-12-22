@@ -1,6 +1,6 @@
 package org.apache.flink.runtime.benchmark.failover;
 
-import org.apache.flink.runtime.benchmark.RuntimeBenchmarkBase;
+import org.apache.flink.runtime.benchmark.WarmUpRuntimeBenchmarkBase;
 import org.apache.flink.runtime.executiongraph.failover.flip1.RestartPipelinedRegionFailoverStrategy;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
@@ -11,7 +11,7 @@ import org.apache.flink.runtime.scheduler.strategy.TestingSchedulingTopology;
 import java.util.List;
 import java.util.Set;
 
-public class FailoverBenchmarkBase extends RuntimeBenchmarkBase {
+public class FailoverBenchmarkBase extends WarmUpRuntimeBenchmarkBase {
 	RestartPipelinedRegionFailoverStrategy strategy;
 	TestingSchedulingTopology schedulingTopology;
 

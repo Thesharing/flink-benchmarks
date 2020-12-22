@@ -1,7 +1,7 @@
 package org.apache.flink.runtime.benchmark.deploying;
 
 import org.apache.flink.api.common.ExecutionMode;
-import org.apache.flink.runtime.benchmark.RuntimeBenchmarkBase;
+import org.apache.flink.runtime.benchmark.ColdStartRuntimeBenchmarkBase;
 import org.apache.flink.runtime.deployment.TaskDeploymentDescriptor;
 import org.apache.flink.runtime.executiongraph.Execution;
 import org.apache.flink.runtime.executiongraph.ExecutionGraph;
@@ -26,7 +26,7 @@ import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.createDef
 import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.createExecutionGraph;
 import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.createJobGraph;
 
-public class DeployTaskBenchmarkBase extends RuntimeBenchmarkBase {
+public class DeployTaskBenchmarkBase extends ColdStartRuntimeBenchmarkBase {
 
 	List<JobVertex> jobVertices;
 	ExecutionGraph executionGraph;
