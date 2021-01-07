@@ -16,13 +16,11 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.benchmark.failover;
+package org.apache.flink.scheduler.benchmark.failover;
 
 import org.apache.flink.runtime.execution.ExecutionState;
-import org.apache.flink.runtime.executiongraph.failover.flip1.RestartPipelinedRegionFailoverStrategy;
-import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
-import org.apache.flink.runtime.scheduler.strategy.ResultPartitionState;
-import org.apache.flink.runtime.scheduler.strategy.TestingSchedulingExecutionVertex;
+import org.apache.flink.runtime.jobmaster.TestingLogicalSlotBuilder;
+import org.apache.flink.scheduler.benchmark.JobConfiguration;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -36,33 +34,32 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
-import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.verifyListSize;
+import static org.apache.flink.scheduler.benchmark.SchedulerBenchmarkUtils.deployAllTasks;
+import static org.apache.flink.scheduler.benchmark.SchedulerBenchmarkUtils.transitionAllTaskStatus;
+import static org.apache.flink.scheduler.benchmark.SchedulerBenchmarkUtils.verifyListSize;
 
-public class RegionToRestartInBatchJobBenchmark extends FailoverBenchmarkBase {
+public class RegionToRestartInStreamingJobBenchmark extends FailoverBenchmarkBase {
+
 	public static void main(String[] args) throws RunnerException {
 		Options options = new OptionsBuilder()
 				.verbosity(VerboseMode.NORMAL)
-				.include(".*" + RegionToRestartInBatchJobBenchmark.class.getCanonicalName() + ".*")
+				.include(".*" + RegionToRestartInStreamingJobBenchmark.class.getCanonicalName() + ".*")
 				.build();
 
 		new Runner(options).run();
 	}
 
-	@Setup(Level.Iteration)
-	public void setupIteration() {
-		initRestartPipelinedRegionFailoverStrategy(ResultPartitionState.CREATED, ResultPartitionType.BLOCKING);
-		for (TestingSchedulingExecutionVertex vertex : source) {
-			vertex.setState(ExecutionState.FINISHED);
-		}
-		for (TestingSchedulingExecutionVertex vertex : sink) {
-			vertex.setState(ExecutionState.RUNNING);
-		}
-		strategy = new RestartPipelinedRegionFailoverStrategy(schedulingTopology);
+	@Setup(Level.Trial)
+	public void setupIteration() throws Exception {
+		createRestartPipelinedRegionFailoverStrategy(JobConfiguration.STREAMING);
+		TestingLogicalSlotBuilder slotBuilder = new TestingLogicalSlotBuilder();
+		deployAllTasks(executionGraph, slotBuilder);
+		transitionAllTaskStatus(executionGraph, ExecutionState.RUNNING);
 	}
 
-	@TearDown(Level.Iteration)
+	@TearDown(Level.Trial)
 	public void teardownIteration() {
-		verifyListSize(tasks, PARALLELISM + 1);
+		verifyListSize(tasks, PARALLELISM * 2);
 		clearVariables();
 		System.gc();
 	}
@@ -70,6 +67,8 @@ public class RegionToRestartInBatchJobBenchmark extends FailoverBenchmarkBase {
 	@Benchmark
 	@BenchmarkMode(Mode.SingleShotTime)
 	public void calculateRegionToRestart() {
-		tasks = strategy.getTasksNeedingRestart(source.get(0).getId(), new Exception("For test."));
+		tasks = strategy.getTasksNeedingRestart(
+				executionGraph.getJobVertex(source.getID()).getTaskVertices()[0].getID(),
+				new Exception("For test."));
 	}
 }

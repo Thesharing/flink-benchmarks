@@ -16,10 +16,9 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.benchmark.topology;
+package org.apache.flink.scheduler.benchmark.topology;
 
 import org.apache.flink.api.common.ExecutionMode;
-import org.apache.flink.runtime.benchmark.ColdStartRuntimeBenchmarkBase;
 import org.apache.flink.runtime.executiongraph.ExecutionGraph;
 import org.apache.flink.runtime.executiongraph.utils.SimpleSlotProvider;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
@@ -28,6 +27,8 @@ import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.ScheduleMode;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotProvider;
+import org.apache.flink.scheduler.benchmark.ColdStartSchedulerBenchmarkBase;
+import org.apache.flink.scheduler.benchmark.SchedulerBenchmarkUtils;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -43,11 +44,7 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.List;
 
-import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.createDefaultJobVertices;
-import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.createExecutionGraph;
-import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.createJobGraph;
-
-public class BuildExecutionGraphInBatchJobBenchmark extends ColdStartRuntimeBenchmarkBase {
+public class BuildExecutionGraphInBatchJobBenchmark extends ColdStartSchedulerBenchmarkBase {
 
 	JobGraph jobGraph;
 	ExecutionGraph executionGraph;
@@ -63,17 +60,17 @@ public class BuildExecutionGraphInBatchJobBenchmark extends ColdStartRuntimeBenc
 
 	@Setup(Level.Iteration)
 	public void setupIteration() throws Exception {
-		final List<JobVertex> jobVertices = createDefaultJobVertices(
+		final List<JobVertex> jobVertices = SchedulerBenchmarkUtils.createDefaultJobVertices(
 				PARALLELISM,
 				DistributionPattern.ALL_TO_ALL,
 				ResultPartitionType.BLOCKING);
-		jobGraph = createJobGraph(
+		jobGraph = SchedulerBenchmarkUtils.createJobGraph(
 				jobVertices,
 				ScheduleMode.LAZY_FROM_SOURCES,
 				ExecutionMode.BATCH);
 		final SlotProvider slotProvider = new SimpleSlotProvider(2 * PARALLELISM);
 
-		executionGraph = createExecutionGraph(jobGraph, slotProvider);
+		executionGraph = SchedulerBenchmarkUtils.createExecutionGraph(jobGraph, slotProvider);
 	}
 
 	@TearDown(Level.Iteration)

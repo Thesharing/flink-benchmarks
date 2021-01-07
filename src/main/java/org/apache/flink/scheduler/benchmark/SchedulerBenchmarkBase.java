@@ -16,15 +16,29 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.benchmark;
+package org.apache.flink.scheduler.benchmark;
 
-import org.openjdk.jmh.annotations.Fork;
+import org.apache.flink.runtime.testingUtils.TestingUtils;
 
-@Fork(value = 10, jvmArgsAppend = {
-		"-Djava.rmi.server.hostname=127.0.0.1",
-		"-Dcom.sun.management.jmxremote.authenticate=false",
-		"-Dcom.sun.management.jmxremote.ssl=false",
-		"-Dcom.sun.management.jmxremote.ssl"
-})
-public class ColdStartRuntimeBenchmarkBase extends RuntimeBenchmarkBase {
+import org.openjdk.jmh.annotations.BenchmarkMode;
+import org.openjdk.jmh.annotations.Mode;
+import org.openjdk.jmh.annotations.OutputTimeUnit;
+import org.openjdk.jmh.annotations.Scope;
+import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.annotations.TearDown;
+
+import java.util.concurrent.TimeUnit;
+
+@SuppressWarnings("MethodMayBeStatic")
+@State(Scope.Thread)
+@OutputTimeUnit(TimeUnit.MILLISECONDS)
+@BenchmarkMode(Mode.AverageTime)
+public class SchedulerBenchmarkBase {
+
+	public static final int PARALLELISM = 8000;
+
+	@TearDown
+	public void teardown() {
+		TestingUtils.defaultExecutor().shutdownNow();
+	}
 }

@@ -16,11 +16,13 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.benchmark.scheduling;
+package org.apache.flink.scheduler.benchmark.deploying;
 
-import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
-import org.apache.flink.runtime.scheduler.strategy.PipelinedRegionSchedulingStrategy;
-import org.apache.flink.runtime.scheduler.strategy.ResultPartitionState;
+import org.apache.flink.runtime.executiongraph.Execution;
+import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
+import org.apache.flink.runtime.executiongraph.ExecutionVertex;
+import org.apache.flink.scheduler.benchmark.JobConfiguration;
+import org.apache.flink.scheduler.benchmark.SchedulerBenchmarkUtils;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -28,39 +30,43 @@ import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.TearDown;
-import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
-public class InitSchedulingStrategyInBatchJobBenchmark extends SchedulingBenchmarkBase {
+
+public class DeployTaskInStreamingJobBenchmark extends DeployTaskBenchmarkBase {
 	public static void main(String[] args) throws RunnerException {
 		Options options = new OptionsBuilder()
 				.verbosity(VerboseMode.NORMAL)
-				.include(".*" + InitSchedulingStrategyInBatchJobBenchmark.class.getCanonicalName() + ".*")
+				.include(".*" + DeployTaskInStreamingJobBenchmark.class.getCanonicalName() + ".*")
 				.build();
 
 		new Runner(options).run();
 	}
 
 	@Setup(Level.Iteration)
-	public void setupIteration(Blackhole blackhole) {
-		initSchedulingTopology(blackhole, ResultPartitionState.CREATED, ResultPartitionType.BLOCKING);
+	public void setupIteration() throws Exception {
+		createAndSetupExecutionGraph(JobConfiguration.STREAMING);
 	}
 
 	@TearDown(Level.Iteration)
-	public void teardownIteration() {
+	public void teardownIteration() throws Exception {
+		SchedulerBenchmarkUtils.waitForListFulfilled(taskDeploymentDescriptors, PARALLELISM * 2, 1000L);
 		clearVariables();
 		System.gc();
 	}
 
 	@Benchmark
 	@BenchmarkMode(Mode.SingleShotTime)
-	public void createSchedulingStrategy(Blackhole blackhole) {
-		final PipelinedRegionSchedulingStrategy schedulingStrategy =
-				new PipelinedRegionSchedulingStrategy(schedulerOperations, schedulingTopology);
-		blackhole.consume(schedulingStrategy);
+	public void deployTasks() throws Exception {
+		for (ExecutionJobVertex ejv : executionGraph.getVerticesTopologically()) {
+			for (ExecutionVertex ev : ejv.getTaskVertices()) {
+				Execution execution = ev.getCurrentExecutionAttempt();
+				execution.deploy();
+			}
+		}
 	}
 }

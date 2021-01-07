@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.benchmark;
+package org.apache.flink.scheduler.benchmark;
 
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.ExecutionMode;
@@ -30,8 +30,10 @@ import org.apache.flink.runtime.executiongraph.AccessExecutionJobVertex;
 import org.apache.flink.runtime.executiongraph.DummyJobInformation;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.ExecutionGraph;
+import org.apache.flink.runtime.executiongraph.ExecutionVertex;
 import org.apache.flink.runtime.executiongraph.JobInformation;
 import org.apache.flink.runtime.executiongraph.NoOpExecutionDeploymentListener;
+import org.apache.flink.runtime.executiongraph.TaskExecutionStateTransition;
 import org.apache.flink.runtime.executiongraph.failover.RestartAllStrategy;
 import org.apache.flink.runtime.executiongraph.failover.flip1.partitionrelease.RegionPartitionReleaseStrategy;
 import org.apache.flink.runtime.executiongraph.restart.NoRestartStrategy;
@@ -40,7 +42,10 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.jobgraph.DistributionPattern;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertex;
+import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.ScheduleMode;
+import org.apache.flink.runtime.jobmaster.LogicalSlot;
+import org.apache.flink.runtime.jobmaster.TestingLogicalSlotBuilder;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotProvider;
 import org.apache.flink.runtime.scheduler.DefaultScheduler;
 import org.apache.flink.runtime.shuffle.NettyShuffleMaster;
@@ -59,7 +64,7 @@ import java.util.function.Predicate;
 /**
  * Utilities for runtime benchmarks.
  */
-public class RuntimeBenchmarkUtils {
+public class SchedulerBenchmarkUtils {
 
 	public static List<JobVertex> createDefaultJobVertices(
 			int parallelism,
@@ -166,6 +171,59 @@ public class RuntimeBenchmarkUtils {
 					"Size of the list mismatch, expected %d, actual %d.",
 					length,
 					list.size()));
+		}
+	}
+
+	public static void deployTasks(
+			ExecutionGraph executionGraph,
+			JobVertexID jobVertexID,
+			TestingLogicalSlotBuilder slotBuilder,
+			boolean sendScheduleOrUpdateConsumersMessage) throws Exception {
+
+		for (ExecutionVertex vertex : executionGraph.getJobVertex(jobVertexID).getTaskVertices()) {
+			LogicalSlot slot = slotBuilder.createTestingLogicalSlot();
+			vertex.getCurrentExecutionAttempt()
+					.registerProducedPartitions(
+							slot.getTaskManagerLocation(),
+							sendScheduleOrUpdateConsumersMessage).get();
+			vertex.deployToSlot(slot);
+		}
+	}
+
+	public static void deployAllTasks(
+			ExecutionGraph executionGraph,
+			TestingLogicalSlotBuilder slotBuilder) throws Exception {
+
+		for (ExecutionVertex vertex : executionGraph.getAllExecutionVertices()) {
+			LogicalSlot slot = slotBuilder.createTestingLogicalSlot();
+			vertex.getCurrentExecutionAttempt().registerProducedPartitions(slot.getTaskManagerLocation(), true).get();
+			vertex.deployToSlot(slot);
+		}
+	}
+
+	public static void transitionTaskStatus(
+			ExecutionGraph executionGraph,
+			JobVertexID jobVertexID,
+			ExecutionState state) {
+
+		for (ExecutionVertex vertex : executionGraph
+				.getJobVertex(jobVertexID)
+				.getTaskVertices()) {
+			executionGraph.updateState(new TaskExecutionStateTransition(new TaskExecutionState(
+					executionGraph.getJobID(),
+					vertex.getCurrentExecutionAttempt().getAttemptId(),
+					state)));
+		}
+	}
+
+	public static void transitionAllTaskStatus(
+			ExecutionGraph executionGraph,
+			ExecutionState state) {
+		for (ExecutionVertex vertex : executionGraph.getAllExecutionVertices()) {
+			executionGraph.updateState(new TaskExecutionStateTransition(new TaskExecutionState(
+					executionGraph.getJobID(),
+					vertex.getCurrentExecutionAttempt().getAttemptId(),
+					state)));
 		}
 	}
 

@@ -16,10 +16,8 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.benchmark.deploying;
+package org.apache.flink.scheduler.benchmark.deploying;
 
-import org.apache.flink.api.common.ExecutionMode;
-import org.apache.flink.runtime.benchmark.ColdStartRuntimeBenchmarkBase;
 import org.apache.flink.runtime.deployment.TaskDeploymentDescriptor;
 import org.apache.flink.runtime.executiongraph.Execution;
 import org.apache.flink.runtime.executiongraph.ExecutionGraph;
@@ -27,43 +25,38 @@ import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
 import org.apache.flink.runtime.executiongraph.ExecutionVertex;
 import org.apache.flink.runtime.executiongraph.utils.SimpleAckingTaskManagerGateway;
 import org.apache.flink.runtime.executiongraph.utils.SimpleSlotProvider;
-import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
-import org.apache.flink.runtime.jobgraph.DistributionPattern;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertex;
-import org.apache.flink.runtime.jobgraph.ScheduleMode;
 import org.apache.flink.runtime.jobmaster.LogicalSlot;
 import org.apache.flink.runtime.jobmaster.TestingLogicalSlotBuilder;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotProvider;
+import org.apache.flink.scheduler.benchmark.ColdStartSchedulerBenchmarkBase;
+import org.apache.flink.scheduler.benchmark.JobConfiguration;
 
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
-import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.createDefaultJobVertices;
-import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.createExecutionGraph;
-import static org.apache.flink.runtime.benchmark.RuntimeBenchmarkUtils.createJobGraph;
+import static org.apache.flink.scheduler.benchmark.SchedulerBenchmarkUtils.createDefaultJobVertices;
+import static org.apache.flink.scheduler.benchmark.SchedulerBenchmarkUtils.createExecutionGraph;
+import static org.apache.flink.scheduler.benchmark.SchedulerBenchmarkUtils.createJobGraph;
 
-public class DeployTaskBenchmarkBase extends ColdStartRuntimeBenchmarkBase {
+public class DeployTaskBenchmarkBase extends ColdStartSchedulerBenchmarkBase {
 
 	List<JobVertex> jobVertices;
 	ExecutionGraph executionGraph;
 	BlockingQueue<TaskDeploymentDescriptor> taskDeploymentDescriptors;
 
-	public void createAndSetupExecutionGraph(
-			DistributionPattern distributionPattern,
-			ResultPartitionType resultPartitionType,
-			ScheduleMode scheduleMode,
-			ExecutionMode executionMode) throws Exception {
+	public void createAndSetupExecutionGraph(JobConfiguration jobConfiguration) throws Exception {
 
 		jobVertices = createDefaultJobVertices(
 				PARALLELISM,
-				distributionPattern,
-				resultPartitionType);
+				jobConfiguration.distributionPattern,
+				jobConfiguration.resultPartitionType);
 		final JobGraph jobGraph = createJobGraph(
 				jobVertices,
-				scheduleMode,
-				executionMode);
+				jobConfiguration.scheduleMode,
+				jobConfiguration.executionMode);
 
 		taskDeploymentDescriptors = new ArrayBlockingQueue<>(PARALLELISM * 2);
 		final SimpleAckingTaskManagerGateway taskManagerGateway = new SimpleAckingTaskManagerGateway();
@@ -82,7 +75,7 @@ public class DeployTaskBenchmarkBase extends ColdStartRuntimeBenchmarkBase {
 			for (ExecutionVertex ev : ejv.getTaskVertices()) {
 				Execution execution = ev.getCurrentExecutionAttempt();
 				LogicalSlot slot = slotBuilder.createTestingLogicalSlot();
-				execution.registerProducedPartitions(slot.getTaskManagerLocation()).get();
+				execution.registerProducedPartitions(slot.getTaskManagerLocation(), true).get();
 				if (!execution.tryAssignResource(slot)) {
 					throw new RuntimeException("Error when assigning slot to execution.");
 				}
