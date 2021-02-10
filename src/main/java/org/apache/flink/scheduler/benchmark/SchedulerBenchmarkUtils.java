@@ -29,11 +29,13 @@ import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.ExecutionGraph;
 import org.apache.flink.runtime.executiongraph.ExecutionVertex;
 import org.apache.flink.runtime.executiongraph.TaskExecutionStateTransition;
+import org.apache.flink.runtime.executiongraph.utils.SimpleSlotProvider;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobmaster.LogicalSlot;
 import org.apache.flink.runtime.jobmaster.TestingLogicalSlotBuilder;
+import org.apache.flink.runtime.jobmaster.slotpool.SlotProvider;
 import org.apache.flink.runtime.scheduler.DefaultScheduler;
 import org.apache.flink.runtime.scheduler.SchedulerTestingUtils;
 import org.apache.flink.runtime.taskmanager.TaskExecutionState;
@@ -99,9 +101,9 @@ public class SchedulerBenchmarkUtils {
 				jobVertices,
 				jobConfiguration);
 
-		final ComponentMainThreadExecutor mainThreadExecutor = ComponentMainThreadExecutorServiceAdapter.forMainThread();
+		final SlotProvider slotProvider = new SimpleSlotProvider(jobVertices.size() * jobConfiguration.getParallelism());
 
-		final DefaultScheduler scheduler = SchedulerTestingUtils.createScheduler(jobGraph, mainThreadExecutor);
+		final DefaultScheduler scheduler = SchedulerTestingUtils.createScheduler(jobGraph, slotProvider);
 
 		return scheduler.getExecutionGraph();
 	}
