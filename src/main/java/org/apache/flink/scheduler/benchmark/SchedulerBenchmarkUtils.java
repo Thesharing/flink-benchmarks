@@ -19,6 +19,7 @@
 package org.apache.flink.scheduler.benchmark;
 
 import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.JobException;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutorServiceAdapter;
@@ -37,11 +38,14 @@ import org.apache.flink.runtime.jobmaster.LogicalSlot;
 import org.apache.flink.runtime.jobmaster.TestingLogicalSlotBuilder;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotProvider;
 import org.apache.flink.runtime.scheduler.DefaultScheduler;
+import org.apache.flink.runtime.scheduler.InternalFailuresListener;
+import org.apache.flink.runtime.scheduler.SchedulerNG;
 import org.apache.flink.runtime.scheduler.SchedulerTestingUtils;
 import org.apache.flink.runtime.taskmanager.TaskExecutionState;
 import org.apache.flink.runtime.testtasks.NoOpInvokable;
 
 import java.io.IOException;
+import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -104,6 +108,22 @@ public class SchedulerBenchmarkUtils {
 		final SlotProvider slotProvider = new SimpleSlotProvider(jobVertices.size() * jobConfiguration.getParallelism());
 
 		final DefaultScheduler scheduler = SchedulerTestingUtils.createScheduler(jobGraph, slotProvider);
+
+		// Here we use reflection to set ExecutionGraph#isLegacyScheduling to be false.
+		// This makes sure the scheduler uses PipelinedRegionScheduling instead of LegacySchedulingStrategy.
+		// We cannot call DefaultScheduler#startScheduling here because we want to schedule the vertices manually.
+		Class<?> listenerClass =
+				Class.forName(
+						"org.apache.flink.runtime.scheduler.UpdateSchedulerNgOnInternalFailuresListener");
+
+		Constructor<?> constructor =
+				listenerClass.getDeclaredConstructor(SchedulerNG.class, JobID.class);
+		constructor.setAccessible(true);
+
+		InternalFailuresListener listener =
+				(InternalFailuresListener) constructor.newInstance(scheduler, jobGraph.getJobID());
+
+		scheduler.getExecutionGraph().enableNgScheduling(listener);
 
 		return scheduler.getExecutionGraph();
 	}
